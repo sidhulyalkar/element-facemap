@@ -506,6 +506,57 @@ class FacialSignal(dj.Imported):
             )
         )
 
+@schema
+class VideoSynchronization(dj.Imported):
+    definition = """
+    -> RecordingInfo
+    ---
+    start_index=null: int
+    stop_index=null: int
+    """
+
+    def make(self, key):
+        rel_path = (VideoRecording.File & key).fetch1("file_path")
+        file_path = (find_full_path(get_facemap_root_data_dir(), rel_path)).as_posix()
+
+        roi_no = 0 if key["recording_id"] else 2
+        xrange, yrange = (FacialSignal.Region & key & f"roi_no={roi_no}").fetch1(
+            "xrange", "yrange"
+        )
+        slices = [
+            slice(yrange.min(), yrange.max()),
+            slice(xrange.min(), xrange.max()),
+        ]
+
+        # peak detection stuff
+        zscores = calculate_intensity_zscores(file_path, slices)
+
+        FLASH_THRESHOLD = 10.0
+        EXPECTED_PEAKS = 12 if "stim" in file_path else 2
+
+        centroids = find_interval_centers(zscores > FLASH_THRESHOLD)
+        if len(centroids) != EXPECTED_PEAKS:
+            print(f"Expected {EXPECTED_PEAKS} flashes. Found {len(centroids)} instead.")
+            centroids = [None, None]
+
+        self.insert1({**key, "start_index": centroids[0], "stop_index": centroids[-1]})
+
+    @classmethod
+    def sync_to_main(cls, key, kind="linear"):
+        start_stop_indices = (cls & key).fetch1("start_index", "stop_index")
+
+        scan_duration = (scan.ScanInfo & key).fetch1("scan_duration")
+        nframes = (RecordingInfo & key).fetch1("nframes")
+
+        sync_f = interp1d(
+            start_stop_indices,
+            [0, scan_duration],
+            kind=kind,
+            fill_value="extrapolate",
+        )
+        return sync_f(np.r_[:nframes])
+
+
 
 # ---------------- HELPER FUNCTIONS ----------------
 
@@ -532,3 +583,22 @@ def get_loader_result(
     creation_time = datetime.fromtimestamp(Path(output_file).stat().st_ctime)
 
     return loaded_dataset, creation_time
+
+
+def calculate_intensity_zscores(file, slices=[slice(None, None), slice(None, None)]):
+    vidcap = cv2.VideoCapture(file)
+    movie_length = np.int32(vidcap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    intensities = np.empty(movie_length)
+    for iframe in range(movie_length):
+        _, framelet = vidcap.read()
+        intensities[iframe] = framelet[slices[0], slices[1], 0].mean()
+    vidcap.release()
+    zscores = (intensities - intensities.mean()) / intensities.std()
+
+    return zscores
+
+
+def find_interval_centers(bool_array):
+    d = np.diff(np.int8(bool_array), prepend=0, append=0)
+    return (np.where(d > 0)[0] + np.where(d < 0)[0]) // 2 - 1
