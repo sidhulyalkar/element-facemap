@@ -196,6 +196,14 @@ class RecordingInfo(dj.Imported):
                 find_full_path(get_facemap_root_data_dir(), file_path)
             ).as_posix()
 
+            if "face_camera" in file_path:
+                fps = 100
+            elif "behavior_camera" in file_path:
+                fps = 30
+            else:
+                raise ValueError("fps cannot be determined due to unknown filepath type!")
+
+
             cap = cv2.VideoCapture(file_path)
             info = (
                 int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
