@@ -438,7 +438,7 @@ class FacialSignal(dj.Imported):
         """Populates the FacialSignal table by transferring the results from default
         Facemap outputs to the database."""
 
-    dataset, _ = fbe.get_loader_result(key, fbe.FacemapTask)
+    dataset, _ = get_loader_result(key, FacemapTask)
 
     # Keep only the SVD regions (e.g. no pupil)
     dataset["rois"] = [roi for roi in dataset["rois"] if "SVD" in roi["rtype"]]
