@@ -532,22 +532,3 @@ def get_loader_result(
     creation_time = datetime.fromtimestamp(Path(output_file).stat().st_ctime)
 
     return loaded_dataset, creation_time
-
-
-def calculate_intensity_zscores(file, slices=[slice(None, None), slice(None, None)]):
-    vidcap = cv2.VideoCapture(file)
-    movie_length = np.int32(vidcap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-    intensities = np.empty(movie_length)
-    for iframe in range(movie_length):
-        _, framelet = vidcap.read()
-        intensities[iframe] = framelet[slices[0], slices[1], 0].mean()
-    vidcap.release()
-    zscores = (intensities - intensities.mean()) / intensities.std()
-
-    return zscores
-
-
-def find_interval_centers(bool_array):
-    d = np.diff(np.int8(bool_array), prepend=0, append=0)
-    return (np.where(d > 0)[0] + np.where(d < 0)[0]) // 2 - 1
