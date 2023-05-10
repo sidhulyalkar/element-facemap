@@ -201,8 +201,9 @@ class RecordingInfo(dj.Imported):
             elif "behavior_camera" in file_path:
                 fps = 30
             else:
-                raise ValueError("fps cannot be determined due to unknown filepath type!")
-
+                raise ValueError(
+                    "fps cannot be determined due to unknown filepath type!"
+                )
 
             cap = cv2.VideoCapture(file_path)
             info = (
@@ -434,78 +435,83 @@ class FacialSignal(dj.Imported):
         avgmotion     : longblob    # 2d nd.array - average binned motion frame
         """
 
-    def make(self, key):
-        """Populates the FacialSignal table by transferring the results from default
-        Facemap outputs to the database."""
+        def make(self, key):
+            """Populates the FacialSignal table by transferring the results from default
+            Facemap outputs to the database."""
 
-    dataset, _ = get_loader_result(key, FacemapTask)
+            dataset, _ = get_loader_result(key, FacemapTask)
 
-    # Keep only the SVD regions (e.g. no pupil)
-    dataset["rois"] = [roi for roi in dataset["rois"] if "SVD" in roi["rtype"]]
+            # Keep only the SVD regions (e.g. no pupil)
+            dataset["rois"] = [roi for roi in dataset["rois"] if "SVD" in roi["rtype"]]
 
-    self.insert1(key)
+            self.insert1(key)
 
-    self.Region.insert(
-        [
-            dict(
-                key,
-                roi_no=i,
-                xrange=dataset["rois"][i]["xrange"],
-                yrange=dataset["rois"][i]["yrange"],
-                xrange_bin=dataset["rois"][i]["xrange_bin"]
-                if "xrange_bin" in dataset["rois"][i]
-                else None,
-                yrange_bin=dataset["rois"][i]["yrange_bin"]
-                if "yrange_bin" in dataset["rois"][i]
-                else None,
-                motion=dataset["motion"][i],
+            self.Region.insert(
+                [
+                    dict(
+                        key,
+                        roi_no=i,
+                        xrange=dataset["rois"][i]["xrange"],
+                        yrange=dataset["rois"][i]["yrange"],
+                        xrange_bin=dataset["rois"][i]["xrange_bin"]
+                        if "xrange_bin" in dataset["rois"][i]
+                        else None,
+                        yrange_bin=dataset["rois"][i]["yrange_bin"]
+                        if "yrange_bin" in dataset["rois"][i]
+                        else None,
+                        motion=dataset["motion"][i],
+                    )
+                    for i in range(len(dataset["rois"]))
+                ]
             )
-            for i in range(len(dataset["rois"]))
-        ]
-    )
 
-    # MotionSVD
-    if any(np.any(x) for x in dataset.get("motSVD", [False])):
-        entry = [
-            dict(
-                key,
-                roi_no=roi_no,
-                pc_no=i,
-                singular_value=dataset["motSv"][i] if "motSv" in dataset else None,
-                motmask=dataset["motMask_reshape"][roi_no + 1][:, :, i],
-                projection=dataset["motSVD"][roi_no + 1][i],
+            # MotionSVD
+            if any(np.any(x) for x in dataset.get("motSVD", [False])):
+                entry = [
+                    dict(
+                        key,
+                        roi_no=roi_no,
+                        pc_no=i,
+                        singular_value=dataset["motSv"][i]
+                        if "motSv" in dataset
+                        else None,
+                        motmask=dataset["motMask_reshape"][roi_no + 1][:, :, i],
+                        projection=dataset["motSVD"][roi_no + 1][i],
+                    )
+                    for roi_no in range(len(dataset["rois"]))
+                    for i in range(1, dataset["motSVD"][roi_no + 1].shape[1])
+                ]
+                self.MotionSVD.insert(entry)
+
+            # MovieSVD
+            if any(np.any(x) for x in dataset.get("movSVD", [False])):
+                entry = [
+                    dict(
+                        key,
+                        roi_no=roi_no,
+                        pc_no=i,
+                        singular_value=dataset["movSv"][i]
+                        if "movSv" in dataset
+                        else None,
+                        movmask=dataset["movMask_reshape"][roi_no + 1][:, :, i],
+                        projection=dataset["movSVD"][roi_no + 1][i],
+                    )
+                    for roi_no in range(len(dataset["rois"]))
+                    for i in range(1, dataset["movSVD"][roi_no + 1].shape[1])
+                    if "SVD" in dataset["rois"][i]["rtype"]
+                ]
+                self.MovieSVD.insert(entry)
+
+            # Summary
+            self.Summary.insert1(
+                dict(
+                    key,
+                    sbin=dataset["sbin"],
+                    avgframe=dataset["avgframe"][0],
+                    avgmotion=dataset["avgmotion"][0],
+                )
             )
-            for roi_no in range(len(dataset["rois"]))
-            for i in range(1, dataset["motSVD"][roi_no + 1].shape[1])
-        ]
-        self.MotionSVD.insert(entry)
 
-    # MovieSVD
-    if any(np.any(x) for x in dataset.get("movSVD", [False])):
-        entry = [
-            dict(
-                key,
-                roi_no=roi_no,
-                pc_no=i,
-                singular_value=dataset["movSv"][i] if "movSv" in dataset else None,
-                movmask=dataset["movMask_reshape"][roi_no + 1][:, :, i],
-                projection=dataset["movSVD"][roi_no + 1][i],
-            )
-            for roi_no in range(len(dataset["rois"]))
-            for i in range(1, dataset["movSVD"][roi_no + 1].shape[1])
-            if "SVD" in dataset["rois"][i]["rtype"]
-        ]
-        self.MovieSVD.insert(entry)
-
-    # Summary
-    self.Summary.insert1(
-        dict(
-            key,
-            sbin=dataset["sbin"],
-            avgframe=dataset["avgframe"][0],
-            avgmotion=dataset["avgmotion"][0],
-        )
-    )
 
 # ---------------- HELPER FUNCTIONS ----------------
 
