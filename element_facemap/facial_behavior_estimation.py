@@ -323,12 +323,12 @@ class FacemapProcessing(dj.Computed):
                 ]
             ]
             output_dir = find_full_path(get_facemap_root_data_dir(), output_dir)
-            params["savepath"] = output_dir
+            params["savepath"] = output_dir.as_posix()
             facemap_run(
                 video_files,
                 sbin=params["sbin"],
                 proc=params,
-                savepath=output_dir.as_posix(),
+                savepath=params["savepath"],
                 motSVD=params.get("motSVD", True),
                 movSVD=params.get("movSVD", True),
             )
