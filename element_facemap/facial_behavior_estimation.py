@@ -329,8 +329,8 @@ class FacemapProcessing(dj.Computed):
                 sbin=params["sbin"],
                 proc=params,
                 savepath=output_dir.as_posix(),
-                motSVD=params["motSVD"],
-                movSVD=params["movSVD"],
+                motSVD=params.get("motSVD", True),
+                movSVD=params.get("movSVD", True),
             )
 
         _, creation_time = get_loader_result(key, FacemapTask)
