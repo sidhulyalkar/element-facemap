@@ -198,7 +198,11 @@ class RecordingInfo(dj.Imported):
 
             if "face_camera" in file_path:
                 fps = 100
-            elif "behavior_camera" in file_path:
+            elif (
+                "front_camera" in file_path
+                or "right_camera" in file_path
+                or "left_camera" in file_path
+            ):
                 fps = 30
             else:
                 raise ValueError(
@@ -324,7 +328,6 @@ class FacemapProcessing(dj.Computed):
             ]
             output_dir = find_full_path(get_facemap_root_data_dir(), output_dir)
             params["savepath"] = output_dir.as_posix()
-            param_file = params["savepath"]
             facemap_run(
                 video_files,
                 sbin=params["sbin"],
