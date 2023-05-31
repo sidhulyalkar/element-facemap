@@ -328,13 +328,15 @@ class FacemapProcessing(dj.Computed):
             ]
             output_dir = find_full_path(get_facemap_root_data_dir(), output_dir)
             params["savepath"] = output_dir.as_posix()
+            params["motSVD"] = params.get("motSVD", True)
+            params["movSVD"] = params.get("movSVD", False)
             facemap_run(
                 video_files,
                 sbin=params["sbin"],
                 proc=params,
                 savepath=params["savepath"],
-                motSVD=params.get("motSVD", True),
-                movSVD=params.get("movSVD", True),
+                motSVD=params["motSVD"],
+                movSVD=params["movSVD"],
             )
 
         _, creation_time = get_loader_result(key, FacemapTask)
@@ -497,7 +499,7 @@ class FacialSignal(dj.Imported):
                     projection=dataset["movSVD"][roi_no + 1][i],
                 )
                 for roi_no in range(len(dataset["rois"]))
-                for i in range(1, dataset["movSVD"][roi_no + 1].shape[1])
+                for i in range(1, dataset["movSVD"][roi_no].shape[1])
                 if "SVD" in dataset["rois"][i]["rtype"]
             ]
             self.MovieSVD.insert(entry)
