@@ -450,7 +450,7 @@ class FacialSignal(dj.Imported):
         # Keep only the SVD regions (e.g. no pupil)
         dataset["rois"] = [roi for roi in dataset["rois"] if "SVD" in roi["rtype"]]
 
-        self.insert1(key)
+        self.insert1(key, allow_direct_insert=True)
 
         self.Region.insert(
             [
@@ -483,9 +483,9 @@ class FacialSignal(dj.Imported):
                     projection=dataset["motSVD"][roi_no + 1][i],
                 )
                 for roi_no in range(len(dataset["rois"]) - 1)
-                for i in range(1, dataset["motSVD"][roi_no + 1].shape[1])
+                for i in range(0, dataset["motSVD"][roi_no + 1].shape[1] - 1)
             ]
-            self.MotionSVD.insert(entry)
+            self.MotionSVD.insert(entry, allow_direct_insert=True)
 
         # MovieSVD
         if any(np.any(x) for x in dataset.get("movSVD", [False])):
@@ -499,10 +499,10 @@ class FacialSignal(dj.Imported):
                     projection=dataset["movSVD"][roi_no + 1][i],
                 )
                 for roi_no in range(len(dataset["rois"]) - 1)
-                for i in range(1, dataset["movSVD"][roi_no].shape[1])
+                for i in range(0, dataset["movSVD"][roi_no].shape[1] - 1)
                 if "SVD" in dataset["rois"][roi_no]["rtype"]
             ]
-            self.MovieSVD.insert(entry)
+            self.MovieSVD.insert(entry, allow_direct_insert=True)
 
         # Summary
         self.Summary.insert1(
