@@ -504,7 +504,7 @@ class FacialSignal(dj.Imported):
                 )
                 for roi_no in range(len(dataset["rois"]))
                 for i in range(1, dataset["movSVD"][roi_no + 1].shape[1])
-                if "SVD" in dataset["rois"][i]["rtype"]
+                if "SVD" in dataset["rois"][roi_no]["rtype"]
             ]
             self.MovieSVD.insert(entry)
 
