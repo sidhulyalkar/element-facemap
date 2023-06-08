@@ -478,14 +478,14 @@ class FacialSignal(dj.Imported):
                     key,
                     roi_no=roi_no,
                     pc_no=i,
-                    singular_value=dataset["motSv"][roi_no + 1][i]
+                    singular_value=dataset["motSv"][roi_no - 1][i]
                     if "motSv" in dataset
                     else None,
-                    motmask=dataset["motMask_reshape"][roi_no + 1][:, :, i],
-                    projection=dataset["motSVD"][roi_no + 1][i],
+                    motmask=dataset["motMask_reshape"][roi_no][:, :, i],
+                    projection=dataset["motSVD"][roi_no][i],
                 )
-                for roi_no in range(len(dataset["rois"]))
-                for i in range(1, dataset["motSVD"][roi_no + 1].shape[1])
+                for roi_no in range(1, len(dataset["rois"]))
+                for i in range(dataset["motSVD"][roi_no].shape[1])
             ]
             self.MotionSVD.insert(entry)
 
@@ -496,14 +496,14 @@ class FacialSignal(dj.Imported):
                     key,
                     roi_no=roi_no,
                     pc_no=i,
-                    singular_value=dataset["movSv"][roi_no + 1][i]
+                    singular_value=dataset["movSv"][roi_no - 1][i]
                     if "movSv" in dataset
                     else None,
-                    movmask=dataset["movMask_reshape"][roi_no + 1][:, :, i],
-                    projection=dataset["movSVD"][roi_no + 1][i],
+                    movmask=dataset["movMask_reshape"][roi_no][:, :, i],
+                    projection=dataset["movSVD"][roi_no][i],
                 )
-                for roi_no in range(len(dataset["rois"]))
-                for i in range(1, dataset["movSVD"][roi_no + 1].shape[1])
+                for roi_no in range(1, len(dataset["rois"]))
+                for i in range(dataset["movSVD"][roi_no].shape[1])
                 if "SVD" in dataset["rois"][roi_no]["rtype"]
             ]
             self.MovieSVD.insert(entry)
