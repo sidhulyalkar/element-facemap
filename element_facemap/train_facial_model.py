@@ -220,8 +220,10 @@ class FacemapModelTrainingTask(dj.Manual):
     training_task_id                        : smallint
     ---
     train_output_dir                        : varchar(255)  # Trained model output directory
+    validation_split                        : float         # Decimal specifying train test split (.25)
     refined_model_name='refined_model'      : varchar(32)   # Specify name of finetuned/trained model filepath
     model_id=null                           : smallint      # Model index for insertion into FacemapModel table
+    testing_video_id=null                   : smallint      # Index of testing video in FacemapTrainFileSet.VideoFile   
     retrain_model_id=null                   : smallint      # Model index of model to be loaded for retraining
     selected_frame_ind=null                 : blob          # Array of frames to run training on
     model_description=None                  : varchar(255)  # Optional, model desc for insertion into FacemapModel     
@@ -327,7 +329,6 @@ class FacemapModelTraining(dj.Computed):
 
         # Convert videos to images for train input
         pre_selected_frame_ind = (FacemapModelTrainingTask & key).fetch1('selected_frame_ind')
-        
         # Currently, only support single video training 
         assert len(video_files) == 1
 
@@ -365,62 +366,88 @@ class FacemapModelTraining(dj.Computed):
         training_params = (FacemapTrainParamSet & f'paramset_idx={key["paramset_idx"]}').fetch1('params')
         refined_model_name = (FacemapModelTrainingTask & key).fetch1('refined_model_name') # default = "refined_model"
 
-        # # Train model using train function defined in Pose class
-        train_model.net = train_model.train(image_data[:,:,:,0], # note: using 0 index for now (could average across this dimension) 
-                                            keypoints_data.T, # needs to be transposed 
-                                            int(training_params['epochs']), 
-                                            int(training_params['batch_size']), 
-                                            float(training_params['learning_rate']), 
-                                            int(training_params['weight_decay']),
-                                            bbox=training_params['bbox'])
+        # Train model using train function defined in Pose class
+
+        # train_model.net = train_model.train(image_data[:,:,:,0], # note: using 0 index for now (could average across this dimension) 
+        #                                     keypoints_data.T, # needs to be transposed 
+        #                                     int(training_params['epochs']), 
+        #                                     int(training_params['batch_size']), 
+        #                                     float(training_params['learning_rate']), 
+        #                                     int(training_params['weight_decay']),
+        #                                     bbox=training_params['bbox'])
         
+        
+        # Approach using train object - rerun predict landmarks to obtain new keypoints to compare with original keypoints
+        # In order to determine model accuray
 
-        # Alternate (requires more imports, but allows for access to model_training object that can be used for cross validation)
+        # testing_video_id = (FacemapModelTrainingTask & key).fetch1('testing_video_id')
+        # if testing_video_id is not None:
+        #     pred_data, _ = train_model.predict_landmarks(testing_video_id, frame_ind=selected_frame_ind)
+        #     xlabels = pred_data[:, :, 0]
+        #     ylabels = pred_data[:, :, 1]
+        
+        
+        # Model Training with Cross Validation approach using model training object
+        # Need to create test and train dataloader objects containing correct data splits
+
         from facemap.pose import model_training, datasets
-
+        
 
         # Split dataset into train and test splits 
         
-        # Splitting keypoints data
-        # dsplits = utils.split_data(X,Y,tcam,tneural)
-        # (
-        #     X_train,
-        #     X_test,
-        #     Y_train,
-        #     Y_test,
-        #     itrain_sample_b,
-        #     itest_sample_b,
-        #     itrain_sample,
-        #     itest_sample,
-        #     itrain,
-        #     itest,
-        # ) = dsplits
+        # Splitting keypoints data (by frames)
 
-        # # Splitting frames image data
+        # Splitting frames image data (by frames)
+        validation_split = (FacemapModelTrainingTask & key).fetch1('validation_split')
 
-        # dataset = datasets.FacemapDataset(
-        #     image_data=image_data,
-        #     keypoints_data=keypoints_data.T,
-        #     bbox=training_params['bbox'],
-        # )
-        # # Create a dataloader object for training
-        # dataloader = torch.utils.data.DataLoader(
-        #     dataset, batch_size=int(training_params['batch_size']), shuffle=True
-        # )
-        # # Use preprocessed data to train the model
-        # train_model.net = model_training.train(
-        #     dataloader,
-        #     train_model.net,
-        #     int(training_params['epochs']),
-        #     int(training_params['weight_decay']),
-        # )
+        numframes = len(selected_frame_ind)
 
-        # pred_keypoints, keypoints = model_training.get_test_predictions(train_model.net, test_dataset)
+        # Obtain randomly split train and test torch dataset subsets
+        # train_imagedata, test_imagedata = torch.utils.data.random_split(image_data, [train_split*numframes, test_split*numframes])
+
+
+        # Split selected frames into a train and test dataset with corresponding keypoint datasets
+        selected_keypoints_data = keypoints_data[:,:,selected_frame_ind].T
+        itrain, itest = utils.split_traintest(numframes, frac=validation_split, pad=0)
         
+        train_keypoints_data = selected_keypoints_data[itrain,:,:]
+        test_keypoints_data = selected_keypoints_data[itest,:,:]
 
+        train_image_data = image_data[itrain,:,:,0] # take single RGB value as all are same in grayscale
+        test_image_data = image_data[itest,:,:,0] 
+
+        train_dataset = datasets.FacemapDataset(
+            image_data=train_image_data,
+            keypoints_data=train_keypoints_data,
+            bbox=training_params['bbox'],
+        )
+
+        test_dataset = datasets.FacemapDataset(
+            image_data=test_image_data,
+            keypoints_data=test_keypoints_data,
+            bbox=training_params['bbox'],
+        )
+
+        # Create a dataloader object for training
+        train_dataloader = torch.utils.data.DataLoader(
+            train_dataset, batch_size=int(training_params['batch_size']), shuffle=True
+        )
+        # Use preprocessed data to train the model
+        train_model.net = model_training.train(
+            train_dataloader,
+            train_model.net,
+            int(training_params['epochs']),
+            int(training_params['weight_decay']),
+        )
+
+        test_dataloader = torch.utils.data.DataLoader(
+            test_dataset, batch_size=int(training_params['batch_size']), shuffle=True
+        )
+        pred_keypoints, keypoints = model_training.get_test_predictions(train_model.net, test_dataloader)
+        
         # Save Refined Model
         model_output_path = output_dir / f'{refined_model_name}.pth'
-        torch.save(train_model.net.state_dict(), model_output_path)
+        train_model.save_model(model_output_path)
 
         model_id = (FacemapModelTrainingTask & key).fetch1('model_id')
         model_description = (FacemapModelTrainingTask & key).fetch1('model_description')
