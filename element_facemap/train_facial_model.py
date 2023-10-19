@@ -245,18 +245,21 @@ class FacemapModelTrainingTask(dj.Manual):
     def insert_facemap_training_task(cls, 
                                      file_set_id, 
                                      training_task_id,
-                                     paramset_idx, 
+                                     paramset_idx,
+                                     validation_split=0.25, 
                                      refined_model_name='refined_model', 
                                      model_description=None, 
                                      selected_frame_ind=[],
                                      keypoints_filename="", 
                                      model_id=None,
                                      retrain_model_id=None):
+        
         key = {"file_set_id": file_set_id, "paramset_idx": paramset_idx}
         inferred_output_dir = cls().infer_output_dir(key, relative=True, mkdir=True)
         facemap_training_task_insert = dict(**key,
                                             training_task_id=training_task_id,
                                             train_output_dir=inferred_output_dir.as_posix(),
+                                            validation_split=validation_split,
                                             refined_model_name=refined_model_name,
                                             selected_frame_ind=selected_frame_ind,
                                             model_description=model_description,
@@ -272,14 +275,14 @@ class FacemapModelTraining(dj.Computed):
     Attributes:
         FacemapModelTrainingTask (foreign key): FacemapModelTrainingTask key.
         train_model_time (datetime): Time of creation of newly trained model
-        latest_snapshot (int unsigned): Latest exact snapshot index (i.e., never -1).
-        config_template (longblob): Stored full config file."""
+        facemap_model_reference (smallint): Reference to index of facemap_pose.FacemapModel
+        """
 
     definition = """
     -> FacemapModelTrainingTask
     ---
     train_model_time        : datetime      # Time of creation of train model file
-    facemap_model_reference : smallint      # Reference to index facemap_pose.FacemapModel table
+    facemap_model_reference : smallint      # Reference to index FacemapModel table
     """
 
     def make(self, key):
