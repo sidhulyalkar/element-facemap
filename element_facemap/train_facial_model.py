@@ -163,14 +163,11 @@ class FacemapTrainParamSet(dj.Lookup):
         cls, paramset_desc: str, params: dict, paramset_idx: int = None
     ):
         """
-        Insert a new set of training parameters into dlc.TrainingParamSet.
+        Insert a new set of training parameters into for Facemap Model Training.
 
         Args:
             paramset_desc (str): Description of parameter set to be inserted 
             params (dict): Dictionary including all settings to specify model training.
-                        Must include shuffle & trainingsetindex b/c not in config.yaml.
-                        project_path and video_sets will be overwritten by config.yaml.
-                        Note that trainingsetindex is 0-indexed
             paramset_idx (int): optional, integer to represent parameters.
         """
 
@@ -364,40 +361,10 @@ class FacemapModelTraining(dj.Computed):
         training_params = (FacemapTrainParamSet & f'paramset_idx={key["paramset_idx"]}').fetch1('params')
         refined_model_name = (FacemapModelTrainingTask & key).fetch1('refined_model_name') # default = "refined_model"
 
-        # Train model using train function defined in Pose class
-
-        # train_model.net = train_model.train(image_data[:,:,:,0], # note: using 0 index for now (could average across this dimension) 
-        #                                     keypoints_data.T, # needs to be transposed 
-        #                                     int(training_params['epochs']), 
-        #                                     int(training_params['batch_size']), 
-        #                                     float(training_params['learning_rate']), 
-        #                                     int(training_params['weight_decay']),
-        #                                     bbox=training_params['bbox'])
-        
-        
-        # Approach using train object - rerun predict landmarks to obtain new keypoints to compare with original keypoints
-        # In order to determine model accuray
-
-        # testing_video_id = (FacemapModelTrainingTask & key).fetch1('testing_video_id')
-        # if testing_video_id is not None:
-        #     pred_data, _ = train_model.predict_landmarks(testing_video_id, frame_ind=selected_frame_ind)
-        #     xlabels = pred_data[:, :, 0]
-        #     ylabels = pred_data[:, :, 1]
-        
-        
-        # Model Training with Cross Validation approach using model training object
-        # Need to create test and train dataloader objects containing correct data splits
-
+        # Model Training with Cross Validation 
         from facemap.pose import model_training, datasets
         
-
-        # Split dataset into train and test splits 
-        
-        # Splitting keypoints data (by frames)
-
-        # Splitting frames image data (by frames)
         validation_split = (FacemapModelTrainingTask & key).fetch1('validation_split')
-
         numframes = len(selected_frame_ind)
 
         # Obtain randomly split train and test torch dataset subsets
@@ -442,6 +409,8 @@ class FacemapModelTraining(dj.Computed):
             test_dataset, batch_size=int(training_params['batch_size']), shuffle=True
         )
         pred_keypoints, keypoints = model_training.get_test_predictions(train_model.net, test_dataloader)
+
+        keypoint_diffs = pred_keypoints - keypoints
         
         # Save Refined Model
         model_output_path = output_dir / f'{refined_model_name}.pth'
