@@ -371,10 +371,6 @@ class FacemapModelTraining(dj.Computed):
         validation_split = (FacemapModelTrainingTask & key).fetch1('validation_split')
         numframes = len(selected_frame_ind)
 
-        # Obtain randomly split train and test torch dataset subsets
-        # train_imagedata, test_imagedata = torch.utils.data.random_split(image_data, [train_split*numframes, test_split*numframes])
-
-
         # Split selected frames into a train and test dataset with corresponding keypoint datasets
         selected_keypoints_data = keypoints_data[:,:,selected_frame_ind].T
         itrain, itest = utils.split_traintest(numframes, frac=validation_split, pad=0)
