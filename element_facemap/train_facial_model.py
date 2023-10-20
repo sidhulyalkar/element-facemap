@@ -202,6 +202,7 @@ class FacemapModelTrainingTask(dj.Manual):
         FacemapTrainParamSet (foreign key): TrainingParamSet key.
         training_task_id (int): Unique ID for training task.
         train_output_dir( varchar(255) ): Relative output directory for trained model 
+        validation_split (float): Train test split specification 
         refined_model_name ( varchar(32) ): Name for retrained model
         model_id (smallint): Unique Model index to be inserted into FacemapModel table
         retrain_model_id (smallint): Model index to query FacemapModel table to link model.net
@@ -358,7 +359,7 @@ class FacemapModelTraining(dj.Computed):
             # LY, LX, sy, sx = utils.video_placement(Ly, Lx)
             # reshaped_videos = utils.multivideo_reshape(image_data, LY, LX, Ly, Lx, sy, sx)  
 
-        keypoints_data = utils.load_keypoints(facemap_pose.BodyPart.contents, keypoints_file)   
+        keypoints_data = utils.load_keypoints(list(zip(*facemap_pose.BodyPart.contents))[0], keypoints_file)   
 
         # Model Parameters (fetch from TrainingParamSet as dict)
         training_params = (FacemapTrainParamSet & f'paramset_idx={key["paramset_idx"]}').fetch1('params')
