@@ -102,7 +102,7 @@ class BodyPart(dj.Lookup):
     """
     
     # Facemap Default BodyPart list
-    contents = [ 
+    contents = zip([ 
         "eye(back)",
         "eye(bottom)",
         "eye(front)",
@@ -118,7 +118,7 @@ class BodyPart(dj.Lookup):
         "whisker(I)",
         "whisker(III)",
         "whisker(II)",
-    ]
+    ])
     
 @schema
 class FacemapModel(dj.Manual):
