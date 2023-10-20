@@ -382,8 +382,8 @@ class FacemapModelTraining(dj.Computed):
         train_keypoints_data = selected_keypoints_data[itrain,:,:]
         test_keypoints_data = selected_keypoints_data[itest,:,:]
 
-        train_image_data = image_data[itrain,:,:,:] 
-        test_image_data = image_data[itest,:,:,:] 
+        train_image_data = image_data[itrain,:,:,0] # take single RGB value as all are same in grayscale
+        test_image_data = image_data[itest,:,:,0] 
 
         train_dataset = datasets.FacemapDataset(
             image_data=train_image_data,
