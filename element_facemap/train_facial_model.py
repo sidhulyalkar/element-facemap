@@ -406,6 +406,7 @@ class FacemapModelTraining(dj.Computed):
             train_dataloader,
             train_model.net,
             int(training_params['epochs']),
+            int(training_params['learning_rate']),
             int(training_params['weight_decay']),
         )
 
