@@ -196,6 +196,7 @@ class RecordingInfo(dj.Imported):
                 find_full_path(get_facemap_root_data_dir(), file_path)
             ).as_posix()
 
+            # Manually assign fps based on file location, as fps cannot be determined from files
             if "face_camera" or "Whisker" in file_path:
                 fps = 100
             elif (
