@@ -196,12 +196,12 @@ class RecordingInfo(dj.Imported):
                 find_full_path(get_facemap_root_data_dir(), file_path)
             ).as_posix()
 
-            if "Whisker" in file_path:
+            if "face_camera" or "Whisker" in file_path:
                 fps = 100
             elif (
-                "Front" in file_path
-                or "Left" in file_path
-                or "Right" in file_path
+                ("front_camera" or "Front" in file_path)
+                or ("right_camera" or "Right" in file_path)
+                or ("left_camera" or "Left" in file_path)
             ):
                 fps = 30
             else:
