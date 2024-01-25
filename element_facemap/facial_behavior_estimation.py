@@ -196,20 +196,6 @@ class RecordingInfo(dj.Imported):
                 find_full_path(get_facemap_root_data_dir(), file_path)
             ).as_posix()
 
-            # Manually assign fps based on file location, as fps cannot be determined from files
-            if "face_camera" or "Whisker" in file_path:
-                fps = 100
-            elif (
-                ("front_camera" or "Front" in file_path)
-                or ("right_camera" or "Right" in file_path)
-                or ("left_camera" or "Left" in file_path)
-            ):
-                fps = 30
-            else:
-                raise ValueError(
-                    "fps cannot be determined due to unknown filepath type!"
-                )
-
             cap = cv2.VideoCapture(file_path)
             info = (
                 int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
@@ -327,15 +313,13 @@ class FacemapProcessing(dj.Computed):
                     for video_file in video_files
                 ]
             ]
+
             output_dir = find_full_path(get_facemap_root_data_dir(), output_dir)
-            params["savepath"] = output_dir.as_posix()
-            params["motSVD"] = params.get("motSVD", True)
-            params["movSVD"] = params.get("movSVD", False)
             facemap_run(
                 video_files,
                 sbin=params["sbin"],
                 proc=params,
-                savepath=params["savepath"],
+                savepath=output_dir.as_posix(),
                 motSVD=params["motSVD"],
                 movSVD=params["movSVD"],
             )
@@ -447,9 +431,8 @@ class FacialSignal(dj.Imported):
         Facemap outputs to the database."""
 
         dataset, _ = get_loader_result(key, FacemapTask)
-
-        # Keep only the SVD regions (e.g. no pupil)
-        dataset["rois"] = [roi for roi in dataset["rois"] if "SVD" in roi["rtype"]]
+        # Only motion SVD region type is supported.
+        dataset["rois"] = [x for x in dataset["rois"] if x["rtype"] == "motion SVD"]
 
         self.insert1(key)
 
@@ -466,9 +449,10 @@ class FacialSignal(dj.Imported):
                     yrange_bin=dataset["rois"][i]["yrange_bin"]
                     if "yrange_bin" in dataset["rois"][i]
                     else None,
-                    motion=dataset["motion"][i],
+                    motion=dataset["motion"][i + 1],
                 )
                 for i in range(len(dataset["rois"]))
+                if dataset["rois"][i]["rtype"] == "motion SVD"
             ]
         )
 
@@ -485,7 +469,7 @@ class FacialSignal(dj.Imported):
                     motmask=dataset["motMask_reshape"][roi_no + 1][:, :, i],
                     projection=dataset["motSVD"][roi_no + 1][i],
                 )
-                for roi_no in range(0, len(dataset["rois"]))
+                for roi_no in range(len(dataset["rois"]))
                 for i in range(dataset["motSVD"][roi_no + 1].shape[1])
             ]
             self.MotionSVD.insert(entry)
@@ -503,9 +487,8 @@ class FacialSignal(dj.Imported):
                     movmask=dataset["movMask_reshape"][roi_no + 1][:, :, i],
                     projection=dataset["movSVD"][roi_no + 1][i],
                 )
-                for roi_no in range(0, len(dataset["rois"]))
+                for roi_no in range(len(dataset["rois"]))
                 for i in range(dataset["movSVD"][roi_no + 1].shape[1])
-                if "SVD" in dataset["rois"][roi_no]["rtype"]
             ]
             self.MovieSVD.insert(entry)
 
